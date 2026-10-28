@@ -16,6 +16,8 @@ class InAppBrowserActivity : AppCompatActivity() {
         setContentView(R.layout.activity_in_app_browser)
 
         webView = findViewById(R.id.webView)
+        val urlExtra = intent.getStringExtra("url")
+        if (urlExtra != null) { webView?.loadUrl(urlExtra) }
         webView?.apply {
             settings.javaScriptEnabled = true
             webViewClient = object : WebViewClient() {

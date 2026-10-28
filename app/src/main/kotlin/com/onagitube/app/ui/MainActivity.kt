@@ -24,7 +24,9 @@ class MainActivity : AppCompatActivity() {
             if (url != null && !url.isEmpty()) {
                 if (isValidUrl(url)) {
                     // TODO: Enqueue download or open share target
-                    Toast.makeText(this, "URL validated: $url", Toast.LENGTH_SHORT).show()
+                    val browserIntent = android.content.Intent(this, InAppBrowserActivity::class.java)
+                    browserIntent.putExtra("url", url)
+                    startActivity(browserIntent)
                 } else {
                     Toast.makeText(this, "Invalid URL format", Toast.LENGTH_SHORT).show()
                 }
