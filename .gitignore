@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+**/build/
+gradle-8.5/     # local distribution we downloaded; wrapper handles this
+
+# Android
+local.properties
+*.apk
+*.aab
+*.iml
+.cxx/
+
+# IDE
+.idea/
+*.iws
+*.ipr
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

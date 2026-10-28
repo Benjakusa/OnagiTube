@@ -17,7 +17,8 @@ class ShareTargetActivity : AppCompatActivity() {
 
         // Handle share intent
         val intent = intent
-        if (intent.action == Intent.ACTION_SEND && intent.type != null && intent.type.contains("text/plain")) {
+        val intentType = intent.type
+        if (intent.action == Intent.ACTION_SEND && intentType != null && intentType.contains("text/plain")) {
             val url = intent.getStringExtra(Intent.EXTRA_TEXT)
             if (url != null) {
                 // Validate and enqueue download

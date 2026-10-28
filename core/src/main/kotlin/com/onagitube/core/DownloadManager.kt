@@ -1,154 +1,159 @@
 package com.onagitube.core
 
-import kotlinx.coroutines.flow.Flow
+import com.onagitube.downloader.DownloadRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flowMutableStateFlow
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * DownloadManager (singleton, Hilt-injected):
- * - Lookup: findByKey(String): DownloadInfo?, findById(Long): DownloadInfo?
- * - Enqueue: enqueue(DownloadRequest): DownloadInfo, enqueueAsync(DownloadRequest)
- * - Control: pause(id, reason: PauseReason), resume(id), cancel(id), retry(id),
- *   delete(id, deleteFile), pauseAll, resumeAll
- * - PauseReason: USER, NO_NETWORK, WIFI_ONLY, LOW_STORAGE, LOW_BATTERY, SYSTEM
- * - Status queries: isRunning, isPaused, isFinished, isFailed
- * - Content-URI handling: handleContentUri(Uri) to open/play/share finished downloads
- *   and to import files via SAF
- * - Policy decisions live here (what to enqueue, when to pause); the transport only executes
- * - Emits a StateFlow<List<DownloadInfo>> and per-task Flow<Progress>
+ * DownloadManager (singleton, Hilt-injected in production).
+ * Manages in-memory download state; intended as the policy layer.
  */
 class DownloadManager {
 
-    // In-memory storage for downloads (in production, would use Room + DataStore)
     private val downloads = ConcurrentHashMap<String, DownloadInfo>()
-    private val keyToId = ConcurrentHashMap<String, Long>()
+    private val keyToId = ConcurrentHashMap<String, String>()
 
-    // Status flows (in production, would use SharedFlow / StateFlow from Hilt)
-    private val _allDownloads = mutableStateFlow<List<DownloadInfo>>(emptyList())
+    private val _allDownloads = MutableStateFlow<List<DownloadInfo>>(emptyList())
     val allDownloads: StateFlow<List<DownloadInfo>> = _allDownloads.asStateFlow()
 
-    // Pause reasons
-    @Serializable
     enum class PauseReason {
         USER,
         NO_NETWORK,
         WIFI_ONLY,
         LOW_STORAGE,
         LOW_BATTERY,
-        SYSTEM
+        SYSTEM,
     }
 
-    /** Download status */
-    @Serializable
     data class DownloadInfo(
         val id: String,
         val request: DownloadRequest,
         val status: DownloadStatus,
         val progress: Double = 0.0,
-        val speed: Long? = null, // bytes per second
-        val eta: Long? = null, // seconds
+        val speed: Long? = null,
+        val eta: Long? = null,
         val error: String? = null,
         val pauseReason: PauseReason? = null,
         val storagePath: String? = null,
-        val downloadTime: Long = System.currentTimeMillis()
+        val downloadTime: Long = System.currentTimeMillis(),
     ) {
-
-        @Serializable
         enum class DownloadStatus {
             ENQUEUED,
             DOWNLOADING,
             PAUSED,
             COMPLETED,
             FAILED,
-            CANCELLED
+            CANCELLED,
         }
     }
 
-    /** Enqueue a new download request */
     fun enqueue(request: DownloadRequest): DownloadInfo {
         val id = generateId()
         val info = DownloadInfo(
             id = id,
             request = request,
-            status = DownloadStatus.ENQUEUED
+            status = DownloadInfo.DownloadStatus.ENQUEUED,
         )
         downloads[id] = info
-        keyToId[request.url] = info.id
+        keyToId[request.url] = id
         updateAllDownloads()
         return info
     }
 
-    fun enqueueAsync(request: DownloadRequest): DownloadInfo = kotlinx.coroutines.withContext(
-        kotlinx.coroutines.Dispatchers.IO
-    ) {
-        enqueue(request)
-    }
+    suspend fun enqueueAsync(request: DownloadRequest): DownloadInfo =
+        withContext(Dispatchers.IO) { enqueue(request) }
 
-    /** Lookup by key */
     fun findByKey(key: String): DownloadInfo? {
-        return downloads[key]
+        val id = keyToId[key] ?: return null
+        return downloads[id]
     }
 
-    /** Lookup by ID */
-    fun findById(id: Long): DownloadInfo? = downloads.values().firstOrNull { it.id.toLong() == id }
+    fun findById(id: String): DownloadInfo? = downloads[id]
 
-    /** Pause a download */
     fun pause(id: String, reason: PauseReason) {
-        downloads[id]?.copy(status = DownloadStatus.PAUSED, pauseReason = reason)
-        updateAllDownloads()
+        downloads[id]?.let {
+            downloads[id] = it.copy(
+                status = DownloadInfo.DownloadStatus.PAUSED,
+                pauseReason = reason,
+            )
+            updateAllDownloads()
+        }
     }
 
-    /** Resume a download */
     fun resume(id: String) {
-        downloads[id]?.copy(status = DownloadStatus.DOWNLOADING, pauseReason = null)
-        updateAllDownloads()
+        downloads[id]?.let {
+            downloads[id] = it.copy(
+                status = DownloadInfo.DownloadStatus.DOWNLOADING,
+                pauseReason = null,
+            )
+            updateAllDownloads()
+        }
     }
 
-    /** Cancel a download */
     fun cancel(id: String) {
-        downloads[id]?.copy(status = DownloadStatus.CANCELLED)
-        updateAllDownloads()
+        downloads[id]?.let {
+            downloads[id] = it.copy(status = DownloadInfo.DownloadStatus.CANCELLED)
+            updateAllDownloads()
+        }
     }
 
-    /** Retry a failed download */
     fun retry(id: String) {
-        downloads[id]?.copy(status = DownloadStatus.ENQUEUED, error = null, pauseReason = null)
-        updateAllDownloads()
+        downloads[id]?.let {
+            downloads[id] = it.copy(
+                status = DownloadInfo.DownloadStatus.ENQUEUED,
+                error = null,
+                pauseReason = null,
+            )
+            updateAllDownloads()
+        }
     }
 
-    /** Delete a download and optionally the file */
     fun delete(id: String, deleteFile: Boolean) {
         val info = downloads.remove(id)
-        keyToId.remove(info?.request.url)
-        if (deleteFile && info.storagePath?.isNotEmpty() == true) {
+        info?.let { keyToId.remove(it.request.url) }
+        if (deleteFile && info?.storagePath?.isNotEmpty() == true) {
             // TODO: Delete file from storage
         }
         updateAllDownloads()
     }
 
-    /** Pause all downloads */
     fun pauseAll() {
-        downloads.values.forEach { it.copy(status = DownloadStatus.PAUSED) }
+        downloads.keys.toList().forEach { id ->
+            downloads[id]?.let {
+                downloads[id] = it.copy(
+                    status = DownloadInfo.DownloadStatus.PAUSED,
+                    pauseReason = PauseReason.USER,
+                )
+            }
+        }
         updateAllDownloads()
     }
 
-    /** Resume all downloads */
     fun resumeAll() {
-        downloads.values.forEach { it.copy(status = DownloadStatus.DOWNLOADING, pauseReason = null) }
+        downloads.keys.toList().forEach { id ->
+            downloads[id]?.let {
+                downloads[id] = it.copy(
+                    status = DownloadInfo.DownloadStatus.DOWNLOADING,
+                    pauseReason = null,
+                )
+            }
+        }
         updateAllDownloads()
     }
 
-    /** Update the all-downloads flow */
     private fun updateAllDownloads() {
-        val list = downloads.values().toList()
-        _allDownloads.value = list
+        _allDownloads.value = downloads.values.toList()
     }
 
-    /** Handle content URI for finished downloads */
+    private fun generateId(): String = UUID.randomUUID().toString()
+
     fun handleContentUri(uri: android.net.Uri): String {
-        // TODO: Implement SAF file access and return intent action
-        return "handled"
+        // TODO: Implement SAF file access
+        return "handled: $uri"
     }
 }

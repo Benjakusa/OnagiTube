@@ -1,17 +1,16 @@
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.serialization")
-    id("com.google.devtools.ktlint")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
-repositories {
-    mavenCentral()
+kotlin {
+    jvmToolchain(17)
 }
 
 dependencies {
-    kotlin("stdlib")
-    kotlin("reflect")
-    kotlin("serialization")
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.serialization.json)
+    implementation(libs.coroutines.core)
     implementation(project(":extractor-api"))
-    implementation("com.squareup.okhttp:okhttp:4.12.0")
 }

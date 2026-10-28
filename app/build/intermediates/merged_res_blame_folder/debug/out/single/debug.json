@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "com.onagitube.app-merged_res-37:/drawable_ic_launcher.xml.flat",
+        "source": "com.onagitube.app-main-39:/drawable/ic_launcher.xml"
+    },
+    {
+        "merged": "com.onagitube.app-merged_res-37:/drawable_ic_launcher_round.xml.flat",
+        "source": "com.onagitube.app-main-39:/drawable/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.onagitube.app-merged_res-37:/layout_activity_share_target.xml.flat",
+        "source": "com.onagitube.app-main-39:/layout/activity_share_target.xml"
+    },
+    {
+        "merged": "com.onagitube.app-merged_res-37:/layout_activity_in_app_browser.xml.flat",
+        "source": "com.onagitube.app-main-39:/layout/activity_in_app_browser.xml"
+    },
+    {
+        "merged": "com.onagitube.app-merged_res-37:/layout_activity_main.xml.flat",
+        "source": "com.onagitube.app-main-39:/layout/activity_main.xml"
+    }
+]

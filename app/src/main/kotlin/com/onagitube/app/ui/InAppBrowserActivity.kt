@@ -1,6 +1,7 @@
 package com.onagitube.app.ui
 
 import android.os.Bundle
+import android.util.Log
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
@@ -17,20 +18,15 @@ class InAppBrowserActivity : AppCompatActivity() {
         webView = findViewById(R.id.webView)
         webView?.apply {
             settings.javaScriptEnabled = true
-            setWebViewClient(WebViewClient() {
-                // Handle navigation within the app
-                overrideUrlLoading(view: WebView?, url: String?): Boolean {
-                    if (url != null) {
-                        // Check if URL is from a registered site
-                        if (isRegisteredSite(url)) {
-                            // Show download button
-                            // TODO: Show floating download button
-                            Log.d("InAppBrowser", "Registered site URL: $url")
-                        }
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                    if (url != null && isRegisteredSite(url)) {
+                        Log.d("InAppBrowser", "Registered site URL: $url")
+                        // TODO: Show floating download button
                     }
-                    return true
+                    return false
                 }
-            })
+            }
         }
     }
 
@@ -50,8 +46,8 @@ class InAppBrowserActivity : AppCompatActivity() {
     }
 
     private fun isRegisteredSite(url: String): Boolean {
-        // Check if URL matches known supported sites
-        return url.contains("youtube.com") || url.contains("vimeo.com") || 
-               url.contains("soundcloud.com") || url.startsWith("http://") || url.startsWith("https://")
+        return url.contains("youtube.com") || url.contains("vimeo.com") ||
+            url.contains("soundcloud.com") || url.startsWith("http://") ||
+            url.startsWith("https://")
     }
 }
