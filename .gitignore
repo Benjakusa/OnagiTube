@@ -23,3 +23,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# IDE/Kotlin local output
+extractor-api/bin/
+**/bin/
